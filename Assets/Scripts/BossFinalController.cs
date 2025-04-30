@@ -20,20 +20,20 @@ public class BossFinalController : MonoBehaviour
     public GameObject bulletPrefab;
     public Transform firePoint;
 
-    public GameObject fallingBallPrefab;
-    public float spawnInterval = 1f;
-    public int ballsPerCycle = 5;
-    public Vector2 spawnAreaMin;
-    public Vector2 spawnAreaMax;
+    public GameObject pigClonePrefab;
+    public int clonesPerCycle = 3;
 
     private bool disparando = false;
-    private bool invocandoBolas = false;
+    private bool invocandoClones = false;
+    private SpriteRenderer sr;
 
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
         agent.updateRotation = false;
         agent.updateUpAxis = false;
+
+        sr = GetComponent<SpriteRenderer>();
     }
 
     void Update()
@@ -44,44 +44,39 @@ public class BossFinalController : MonoBehaviour
 
         if (estadoActual == Estado.Persiguiendo)
         {
+            sr.color = Color.white;
+
             if (distancia <= detectionRange)
             {
                 agent.isStopped = false;
                 agent.SetDestination(player.position);
 
-                // Solo cuenta tiempo si se está moviendo efectivamente
                 if (agent.velocity.magnitude > 0.1f)
                     tiempoCorriendo += Time.deltaTime;
 
-                // Disparo solo si está en rango y no muy cerca
                 if (distancia <= rangedRange && distancia > meleeRange && !disparando)
-                {
                     StartCoroutine(DisparoRango());
-                }
 
-                // Si alcanzó el tiempo máximo, cambiar a cansado
                 if (tiempoCorriendo >= tiempoMaximoCorriendo)
-                {
                     StartCoroutine(EntrarEnCansancio());
-                }
             }
             else
             {
                 agent.isStopped = true;
             }
         }
-
         else if (estadoActual == Estado.Cansado)
         {
+            sr.color = Color.red;
             agent.isStopped = true;
-            if (!invocandoBolas)
-                StartCoroutine(InvocarBolas());
+
+            if (!invocandoClones)
+                StartCoroutine(InvocarClones());
         }
     }
 
     IEnumerator DisparoRango()
     {
-        // Solo si está persiguiendo
         if (estadoActual != Estado.Persiguiendo) yield break;
 
         disparando = true;
@@ -90,7 +85,12 @@ public class BossFinalController : MonoBehaviour
         {
             GameObject bala = Instantiate(bulletPrefab, firePoint.position, Quaternion.identity);
             Vector2 direccion = (player.position - transform.position).normalized;
-            bala.GetComponent<Rigidbody2D>().linearVelocity = direccion * 5f;
+
+            Rigidbody2D rb = bala.GetComponent<Rigidbody2D>();
+            if (rb != null)
+                rb.linearVelocity = direccion * 5f;
+
+            Destroy(bala, 3f);
         }
 
         yield return new WaitForSeconds(1f);
@@ -101,24 +101,25 @@ public class BossFinalController : MonoBehaviour
     {
         estadoActual = Estado.Cansado;
         tiempoCorriendo = 0f;
-        invocandoBolas = false;
+        invocandoClones = false;
+
         yield return new WaitForSeconds(tiempoCansado);
         estadoActual = Estado.Persiguiendo;
     }
 
-    IEnumerator InvocarBolas()
+    IEnumerator InvocarClones()
     {
-        invocandoBolas = true;
+        invocandoClones = true;
 
-        for (int i = 0; i < ballsPerCycle; i++)
+        for (int i = 0; i < clonesPerCycle; i++)
         {
-            Vector2 posicionAleatoria = new Vector2(
-                Random.Range(spawnAreaMin.x, spawnAreaMax.x),
-                Random.Range(spawnAreaMin.y, spawnAreaMax.y)
-            );
+            Vector2 offset = Random.insideUnitCircle * 2f;
+            Vector2 spawnPosition = (Vector2)transform.position + offset;
 
-            Instantiate(fallingBallPrefab, posicionAleatoria, Quaternion.identity);
-            yield return new WaitForSeconds(spawnInterval);
+            Instantiate(pigClonePrefab, spawnPosition, Quaternion.identity);
+            yield return new WaitForSeconds(0.5f);
         }
+
+        invocandoClones = false;
     }
 }
